@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Paper QA</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e4e4e7;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            padding: 40px 0;
+            margin-bottom: 40px;
+            border-bottom: 1px solid #27272a;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #fafafa;
+        }
+
+        .subtitle {
+            color: #71717a;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 32px;
+        }
+
+        .sidebar {
+            background: #18181b;
+            padding: 24px;
+            border-radius: 8px;
+            border: 1px solid #27272a;
+            height: fit-content;
+        }
+
+        .content {
+            background: #18181b;
+            padding: 32px;
+            border-radius: 8px;
+            border: 1px solid #27272a;
+        }
+
+        h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fafafa;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #27272a;
+            color: #e4e4e7;
+            border: 1px solid #3f3f46;
+        }
+
+        .btn-secondary:hover {
+            background: #3f3f46;
+        }
+
+        .btn-danger {
+            background: #18181b;
+            color: #ef4444;
+            border: 1px solid #3f3f46;
+        }
+
+        .btn-danger:hover {
+            background: #27272a;
+            border-color: #ef4444;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn:disabled {
+            background: #27272a;
+            color: #52525b;
+            cursor: not-allowed;
+            border-color: #27272a;
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 13px;
+            color: #a1a1aa;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0a0a0a;
+            border: 1px solid #27272a;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #e4e4e7;
+            transition: all 0.2s;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .project-list {
+            margin-top: 20px;
+        }
+
+        .project-item {
+            padding: 12px;
+            border: 1px solid #27272a;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .project-item:hover {
+            border-color: #3f3f46;
+            background: #27272a;
+        }
+
+        .project-item.active {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .project-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: #fafafa;
+            font-size: 14px;
+        }
+
+        .project-meta {
+            font-size: 12px;
+            color: #71717a;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+
+        .badge-warning {
+            background: rgba(251, 191, 36, 0.15);
+            color: #fbbf24;
+        }
+
+        .upload-zone {
+            border: 2px dashed #27272a;
+            border-radius: 8px;
+            padding: 48px;
+            text-align: center;
+            margin: 24px 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #0a0a0a;
+        }
+
+        .upload-zone:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-zone.dragover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .query-section {
+            margin-top: 40px;
+            padding-top: 32px;
+            border-top: 1px solid #27272a;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            background: #0a0a0a;
+            border: 1px solid #27272a;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 120px;
+            color: #e4e4e7;
+            transition: all 0.2s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .response-box {
+            margin-top: 20px;
+            padding: 24px;
+            background: #0a0a0a;
+            border-radius: 8px;
+            border: 1px solid #27272a;
+            white-space: pre-wrap;
+            line-height: 1.7;
+            color: #d4d4d8;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #27272a;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #52525b;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .file-list {
+            margin-top: 20px;
+            font-size: 13px;
+        }
+
+        .file-list strong {
+            color: #a1a1aa;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .file-item {
+            padding: 10px 12px;
+            background: #0a0a0a;
+            border: 1px solid #27272a;
+            border-radius: 6px;
+            margin-top: 8px;
+            color: #a1a1aa;
+        }
+
+        .k-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .k-control input {
+            width: 80px;
+        }
+
+        .k-control label {
+            margin-bottom: 0;
+            color: #a1a1aa;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: #fafafa;
+        }
+
+        h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fafafa;
+            margin-top: 32px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>RAG Paper QA</h1>
+            <p class="subtitle">Query your research papers with AI-powered search</p>
+        </header>
+
+        <div class="main-grid">
+            <div class="sidebar">
+                <h3>Projects</h3>
+                
+                <div class="input-group">
+                    <input type="text" id="newProjectName" placeholder="New project name">
+                    <button class="btn" onclick="createProject()" style="width: 100%; margin-top: 8px;">
+                        + Create Project
+                    </button>
+                </div>
+
+                <div class="project-list" id="projectList">
+                    <!-- Projects will be loaded here -->
+                </div>
+            </div>
+
+            <div class="content">
+                <div id="emptyState" class="empty-state">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <h3>No project selected</h3>
+                    <p>Create or select a project to get started</p>
+                </div>
+
+                <div id="projectView" style="display: none;">
+                    <h2 id="projectTitle"></h2>
+                    
+                    <div class="upload-zone" id="uploadZone">
+                        <p style="margin-bottom: 10px; color: #a1a1aa;"> Drop PDF files here or click to browse</p>
+                        <p style="font-size: 12px; color: #52525b;">Upload research papers to this project</p>
+                        <input type="file" id="fileInput" multiple accept=".pdf" style="display: none;">
+                    </div>
+
+                    <div class="file-list" id="fileList"></div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-success" onclick="indexProject()" id="indexBtn">
+                            Index Papers
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteProject()">
+                            Delete Project
+                        </button>
+                    </div>
+
+                    <div class="query-section">
+                        <h3>Query Papers</h3>
+                        <textarea id="queryInput" placeholder="Ask a question about your papers..."></textarea>
+                        
+                        <div class="k-control">
+                            <label>Retrieve top</label>
+                            <input type="number" id="kValue" value="5" min="1" max="20">
+                            <label>chunks</label>
+                        </div>
+
+                        <button class="btn" onclick="submitQuery()" style="margin-top: 16px;" id="queryBtn">
+                            Ask Question
+                        </button>
+
+                        <div id="responseBox" style="display: none;">
+                            <h4>Response:</h4>
+                            <div class="response-box" id="response"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentProject = null;
+        let uploadedFiles = [];
+
+        async function loadProjects() {
+            const res = await fetch('/api/projects');
+            const projects = await res.json();
+            
+            const list = document.getElementById('projectList');
+            list.innerHTML = projects.length === 0 
+                ? '<p style="color: #52525b; font-size: 13px; text-align: center; padding: 20px;">No projects yet</p>'
+                : '';
+            
+            projects.forEach(project => {
+                const div = document.createElement('div');
+                div.className = 'project-item' + (currentProject === project.name ? ' active' : '');
+                div.onclick = () => selectProject(project.name);
+                
+                const badge = project.indexed 
+                    ? '<span class="badge badge-success">Indexed</span>'
+                    : '<span class="badge badge-warning">Not indexed</span>';
+                
+                div.innerHTML = `
+                    <div class="project-name">${project.name}</div>
+                    <div class="project-meta">
+                        ${project.paper_count} papers ${badge}
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        async function createProject() {
+            const name = document.getElementById('newProjectName').value.trim();
+            if (!name) return alert('Please enter a project name');
+            
+            console.log('Creating project:', name);
+            
+            try {
+                const res = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name})
+                });
+                
+                console.log('Response status:', res.status);
+                const data = await res.json();
+                console.log('Response data:', data);
+                
+                if (res.ok) {
+                    document.getElementById('newProjectName').value = '';
+                    await loadProjects();
+                    selectProject(name);
+                } else {
+                    alert(data.error);
+                }
+            } catch (error) {
+                console.error('Error creating project:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function selectProject(name) {
+            currentProject = name;
+            uploadedFiles = [];
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('projectView').style.display = 'block';
+            document.getElementById('projectTitle').textContent = name;
+            document.getElementById('responseBox').style.display = 'none';
+            document.getElementById('fileList').innerHTML = '';
+            loadProjects();
+        }
+
+        // File upload handling
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadZone.onclick = () => fileInput.click();
+
+        uploadZone.ondragover = (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        };
+
+        uploadZone.ondragleave = () => {
+            uploadZone.classList.remove('dragover');
+        };
+
+        uploadZone.ondrop = async (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            await uploadFiles(e.dataTransfer.files);
+        };
+
+        fileInput.onchange = async (e) => {
+            await uploadFiles(e.target.files);
+        };
+
+        async function uploadFiles(files) {
+            if (!currentProject) return alert('Select a project first');
+            
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+            
+            const res = await fetch(`/api/projects/${currentProject}/papers`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await res.json();
+            if (res.ok) {
+                uploadedFiles.push(...data.uploaded);
+                updateFileList();
+                loadProjects();
+            } else {
+                alert(data.error);
+            }
+        }
+
+        function updateFileList() {
+            const list = document.getElementById('fileList');
+            if (uploadedFiles.length === 0) {
+                list.innerHTML = '';
+                return;
+            }
+            
+            list.innerHTML = '<strong>Recently uploaded:</strong>' + 
+                uploadedFiles.map(f => `<div class="file-item">✓ ${f}</div>`).join('');
+        }
+
+        async function indexProject() {
+            if (!currentProject) return;
+            
+            const btn = document.getElementById('indexBtn');
+            btn.disabled = true;
+            btn.innerHTML = 'Indexing...<span class="loading"></span>';
+            
+            const res = await fetch(`/api/projects/${currentProject}/index`, {
+                method: 'POST'
+            });
+            
+            btn.disabled = false;
+            btn.innerHTML = 'Index Papers';
+            
+            if (res.ok) {
+                alert('Indexing complete!');
+                loadProjects();
+            } else {
+                const data = await res.json();
+                alert('Error: ' + data.error);
+            }
+        }
+
+        async function submitQuery() {
+            if (!currentProject) return;
+            
+            const query = document.getElementById('queryInput').value.trim();
+            if (!query) return alert('Please enter a question');
+            
+            const k = parseInt(document.getElementById('kValue').value) || 5;
+            
+            const btn = document.getElementById('queryBtn');
+            btn.disabled = true;
+            btn.innerHTML = 'Searching...<span class="loading"></span>';
+            
+            const res = await fetch(`/api/projects/${currentProject}/query`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({query, k})
+            });
+            
+            btn.disabled = false;
+            btn.innerHTML = 'Ask Question';
+            
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('responseBox').style.display = 'block';
+                document.getElementById('response').textContent = data.response;
+                
+                // Render LaTeX math
+                renderMathInElement(document.getElementById('response'), {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '\\[', right: '\\]', display: true}
+                    ],
+                    throwOnError: false
+                });
+            } else {
+                alert('Error: ' + data.error);
+            }
+        }
+
+        async function deleteProject() {
+            if (!currentProject) return;
+            if (!confirm(`Delete project "${currentProject}"? This cannot be undone.`)) return;
+            
+            const res = await fetch(`/api/projects/${currentProject}`, {
+                method: 'DELETE'
+            });
+            
+            if (res.ok) {
+                currentProject = null;
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('projectView').style.display = 'none';
+                loadProjects();
+            }
+        }
+
+        // Load projects on start
+        loadProjects();
+    </script>
+</body>
+</html>
