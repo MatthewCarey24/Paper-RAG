@@ -8,9 +8,9 @@ import pypdf
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
-def extract_text_from_pdf(filename):
+def extract_text_from_pdf(papers_dir, filename):
     text = ""
-    with open(f"{config.PAPERS_DIR}/{filename}", "rb") as file:
+    with open(f"{papers_dir}{filename}", "rb") as file:
         pdf_reader = pypdf.PdfReader(file)
     
         num_pages = len(pdf_reader.pages)
@@ -123,8 +123,32 @@ def add_chunks_to_collection(collection, chunks, embedding_model):
     )
 
 
-def index_papers():
-    pdf_paths = glob.glob(os.path.join(config.PAPERS_DIR, "*.pdf"))
+def index_papers(project_name):
+    """
+    Index all PDF papers in a project's papers directory.
+    
+    Args:
+        project_name: Name of the project to index.
+    """
+    if project_name is None:
+        raise ValueError(f"no project to index")
+    
+    papers_dir = config.get_papers_path(project_name)
+    index_path = config.get_index_path(project_name)
+    
+    print(f"\n=== Indexing Project: {project_name} ===")
+    print(f"Papers directory: {papers_dir}")
+    print(f"Index directory: {index_path}")
+    
+    if not os.path.exists(papers_dir):
+        raise ValueError(f"Papers directory not found: {papers_dir}")
+    
+    pdf_paths = glob.glob(os.path.join(papers_dir, "*.pdf"))
+    
+    if not pdf_paths:
+        raise ValueError(f"No PDF files found in: {papers_dir}")
+    
+    print(f"Found {len(pdf_paths)} PDF files")
 
     all_chunks = []
 
@@ -132,23 +156,32 @@ def index_papers():
         filename = os.path.basename(pdf_path)
         print(f"  Processing: {filename}")
 
-        text = extract_text_from_pdf(filename)
+        text = extract_text_from_pdf(papers_dir, filename)
 
         chunks = chunk_paper(text, filename)
-        print(f"{len(chunks)} chunks from {filename}")
+        print(f"    → {len(chunks)} chunks from {filename}")
 
         all_chunks.extend(chunks)
 
     
-    print(f"    → Created {len(all_chunks)} chunks")
+    print(f"\nTotal chunks created: {len(all_chunks)}")
 
-    os.makedirs(config.INDEX_PATH, exist_ok=True)
-    client = chromadb.PersistentClient(path=config.INDEX_PATH)
+    # Create ChromaDB index
+    os.makedirs(index_path, exist_ok=True)
+    client = chromadb.PersistentClient(path=index_path)
+    
+    # Delete existing collection if it exists
     try:
-        client.delete_collection(name="papers")
+        client.delete_collection(name=config.CHROMA_COLLECTION_NAME)
+        print("Deleted existing collection")
     except:
         pass
-    collection = client.create_collection(name="papers")
+    
+    collection = client.create_collection(name=config.CHROMA_COLLECTION_NAME)
+    print(f"Created collection: {config.CHROMA_COLLECTION_NAME}")
+    
     embedding_model = SentenceTransformer(config.EMBEDDING_MODEL)
+    print(f"Loaded embedding model: {config.EMBEDDING_MODEL}")
 
     add_chunks_to_collection(collection, all_chunks, embedding_model)
+    print(f"✓ Successfully indexed {len(all_chunks)} chunks for project '{project_name}'")
