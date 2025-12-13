@@ -2,6 +2,7 @@ from sentence_transformers import SentenceTransformer
 import config
 import chromadb
 from dotenv import load_dotenv
+from index_pubmed import update_pubmed_queue
 import os
 from openai import OpenAI
 
@@ -114,3 +115,11 @@ def rag_query(original_query, project_name=None, k=None):
     response = ping_llm(system_prompt, user_prompt)
     
     return response.content
+
+
+
+def pubmed_query(original_query, k):
+    update_pubmed_queue(original_query)
+
+    response = rag_query(original_query, project_name="pubmed_queue", k=k)
+    return response

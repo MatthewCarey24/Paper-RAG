@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -101,6 +102,11 @@
 
         .btn-secondary:hover {
             background: #3f3f46;
+        }
+
+        .btn-secondary.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
         }
 
         .btn-danger {
@@ -264,9 +270,82 @@
             background: #0a0a0a;
             border-radius: 8px;
             border: 1px solid #27272a;
-            white-space: pre-wrap;
             line-height: 1.7;
             color: #d4d4d8;
+        }
+
+        .response-box h1, .response-box h2, .response-box h3 {
+            color: #fafafa;
+            margin-top: 24px;
+            margin-bottom: 12px;
+        }
+
+        .response-box h1 { font-size: 24px; }
+        .response-box h2 { font-size: 20px; }
+        .response-box h3 { 
+            font-size: 16px; 
+            text-transform: none; 
+            letter-spacing: normal; 
+        }
+
+        .response-box p {
+            margin-bottom: 12px;
+        }
+
+        .response-box ul, .response-box ol {
+            margin-left: 24px;
+            margin-bottom: 12px;
+        }
+
+        .response-box li {
+            margin-bottom: 6px;
+        }
+
+        .response-box code {
+            background: #18181b;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #fbbf24;
+        }
+
+        .response-box pre {
+            background: #18181b;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-bottom: 12px;
+            border: 1px solid #27272a;
+        }
+
+        .response-box pre code {
+            background: none;
+            padding: 0;
+            color: #e4e4e7;
+        }
+
+        .response-box blockquote {
+            border-left: 3px solid #3b82f6;
+            padding-left: 16px;
+            margin-left: 0;
+            margin-bottom: 12px;
+            color: #a1a1aa;
+            font-style: italic;
+        }
+
+        .response-box strong {
+            color: #fafafa;
+            font-weight: 600;
+        }
+
+        .response-box a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+
+        .response-box a:hover {
+            text-decoration: underline;
         }
 
         .action-buttons {
@@ -375,7 +454,12 @@
 
         <div class="main-grid">
             <div class="sidebar">
-                <h3>Projects</h3>
+                <h3>Databases</h3>
+                <button class="btn btn-secondary" id="cochraneBtn" onclick="selectCochrane()" style="width: 100%; margin-bottom: 16px;">
+                    PubMed Chat
+                </button>
+
+                <h3 style="margin-top: 32px;">Projects</h3>
                 
                 <div class="input-group">
                     <input type="text" id="newProjectName" placeholder="New project name">
@@ -384,9 +468,7 @@
                     </button>
                 </div>
 
-                <div class="project-list" id="projectList">
-                    <!-- Projects will be loaded here -->
-                </div>
+                <div class="project-list" id="projectList"></div>
             </div>
 
             <div class="content">
@@ -395,21 +477,21 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
                     <h3>No project selected</h3>
-                    <p>Create or select a project to get started</p>
+                    <p>Create or select a project to get started, or use PubMed Chat</p>
                 </div>
 
                 <div id="projectView" style="display: none;">
                     <h2 id="projectTitle"></h2>
                     
                     <div class="upload-zone" id="uploadZone">
-                        <p style="margin-bottom: 10px; color: #a1a1aa;"> Drop PDF files here or click to browse</p>
+                        <p style="margin-bottom: 10px; color: #a1a1aa;">📄 Drop PDF files here or click to browse</p>
                         <p style="font-size: 12px; color: #52525b;">Upload research papers to this project</p>
                         <input type="file" id="fileInput" multiple accept=".pdf" style="display: none;">
                     </div>
 
                     <div class="file-list" id="fileList"></div>
 
-                    <div class="action-buttons">
+                    <div class="action-buttons" id="actionButtons">
                         <button class="btn btn-success" onclick="indexProject()" id="indexBtn">
                             Index Papers
                         </button>
@@ -422,7 +504,7 @@
                         <h3>Query Papers</h3>
                         <textarea id="queryInput" placeholder="Ask a question about your papers..."></textarea>
                         
-                        <div class="k-control">
+                        <div class="k-control" id="kControl">
                             <label>Retrieve top</label>
                             <input type="number" id="kValue" value="5" min="1" max="20">
                             <label>chunks</label>
@@ -444,7 +526,30 @@
 
     <script>
         let currentProject = null;
+        let isCochraneMode = false;
         let uploadedFiles = [];
+
+        function selectCochrane() {
+            currentProject = null;
+            isCochraneMode = true;
+            uploadedFiles = [];
+
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('projectView').style.display = 'block';
+            document.getElementById('projectTitle').textContent = 'PubMed Chat';
+
+            document.getElementById('uploadZone').style.display = 'none';
+            document.getElementById('actionButtons').style.display = 'none';
+            document.getElementById('kControl').style.display = 'none';
+            document.getElementById('fileList').innerHTML = '';
+            document.getElementById('responseBox').style.display = 'none';
+            document.getElementById('queryInput').value = '';
+
+            document.getElementById('queryInput').placeholder = 'Ask a question about PubMed research...';
+
+            document.getElementById('cochraneBtn').classList.add('active');
+            loadProjects();
+        }
 
         async function loadProjects() {
             const res = await fetch('/api/projects');
@@ -457,7 +562,7 @@
             
             projects.forEach(project => {
                 const div = document.createElement('div');
-                div.className = 'project-item' + (currentProject === project.name ? ' active' : '');
+                div.className = 'project-item' + (currentProject === project.name && !isCochraneMode ? ' active' : '');
                 div.onclick = () => selectProject(project.name);
                 
                 const badge = project.indexed 
@@ -478,8 +583,6 @@
             const name = document.getElementById('newProjectName').value.trim();
             if (!name) return alert('Please enter a project name');
             
-            console.log('Creating project:', name);
-            
             try {
                 const res = await fetch('/api/projects', {
                     method: 'POST',
@@ -487,9 +590,7 @@
                     body: JSON.stringify({name})
                 });
                 
-                console.log('Response status:', res.status);
                 const data = await res.json();
-                console.log('Response data:', data);
                 
                 if (res.ok) {
                     document.getElementById('newProjectName').value = '';
@@ -506,24 +607,38 @@
 
         function selectProject(name) {
             currentProject = name;
+            isCochraneMode = false;
             uploadedFiles = [];
+            
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('projectView').style.display = 'block';
             document.getElementById('projectTitle').textContent = name;
+            
+            document.getElementById('uploadZone').style.display = 'block';
+            document.getElementById('actionButtons').style.display = 'flex';
+            document.getElementById('kControl').style.display = 'flex';
+            
             document.getElementById('responseBox').style.display = 'none';
             document.getElementById('fileList').innerHTML = '';
+            document.getElementById('queryInput').value = '';
+            document.getElementById('queryInput').placeholder = 'Ask a question about your papers...';
+            
+            document.getElementById('cochraneBtn').classList.remove('active');
             loadProjects();
         }
 
-        // File upload handling
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
 
-        uploadZone.onclick = () => fileInput.click();
+        uploadZone.onclick = () => {
+            if (!isCochraneMode) fileInput.click();
+        };
 
         uploadZone.ondragover = (e) => {
-            e.preventDefault();
-            uploadZone.classList.add('dragover');
+            if (!isCochraneMode) {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            }
         };
 
         uploadZone.ondragleave = () => {
@@ -531,9 +646,11 @@
         };
 
         uploadZone.ondrop = async (e) => {
-            e.preventDefault();
-            uploadZone.classList.remove('dragover');
-            await uploadFiles(e.dataTransfer.files);
+            if (!isCochraneMode) {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                await uploadFiles(e.dataTransfer.files);
+            }
         };
 
         fileInput.onchange = async (e) => {
@@ -598,8 +715,8 @@
         }
 
         async function submitQuery() {
-            if (!currentProject) return;
-            
+            if (!currentProject && !isCochraneMode) return;
+
             const query = document.getElementById('queryInput').value.trim();
             if (!query) return alert('Please enter a question');
             
@@ -609,7 +726,11 @@
             btn.disabled = true;
             btn.innerHTML = 'Searching...<span class="loading"></span>';
             
-            const res = await fetch(`/api/projects/${currentProject}/query`, {
+            const endpoint = isCochraneMode
+                ? '/api/pubmed/chat'
+                : `/api/projects/${currentProject}/query`;
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({query, k})
@@ -621,18 +742,21 @@
             const data = await res.json();
             if (res.ok) {
                 document.getElementById('responseBox').style.display = 'block';
-                document.getElementById('response').textContent = data.response;
+                const responseElement = document.getElementById('response');
                 
-                // Render LaTeX math
-                renderMathInElement(document.getElementById('response'), {
-                    delimiters: [
-                        {left: '$$', right: '$$', display: true},
-                        {left: '$', right: '$', display: false},
-                        {left: '\\(', right: '\\)', display: false},
-                        {left: '\\[', right: '\\]', display: true}
-                    ],
-                    throwOnError: false
-                });
+                responseElement.innerHTML = marked.parse(data.response);
+                
+                if (window.renderMathInElement) {
+                    renderMathInElement(responseElement, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\(', right: '\\)', display: false},
+                            {left: '\\[', right: '\\]', display: true}
+                        ],
+                        throwOnError: false
+                    });
+                }
             } else {
                 alert('Error: ' + data.error);
             }
@@ -648,13 +772,13 @@
             
             if (res.ok) {
                 currentProject = null;
+                isCochraneMode = false;
                 document.getElementById('emptyState').style.display = 'block';
                 document.getElementById('projectView').style.display = 'none';
                 loadProjects();
             }
         }
 
-        // Load projects on start
         loadProjects();
     </script>
 </body>

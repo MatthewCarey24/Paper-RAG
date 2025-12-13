@@ -3,7 +3,7 @@ from werkzeug.utils import secure_filename
 import os
 import shutil
 from pathlib import Path
-from handle_query import rag_query
+from handle_query import rag_query, pubmed_query
 from index_papers import index_papers
 import config
 
@@ -47,6 +47,21 @@ def get_projects():
 def index():
     return send_from_directory('.', 'index.html')
 
+
+@app.route('/api/pubmed/chat', methods=['POST'])
+def query_pubmed():
+    data = request.json
+    query = data.get('query', '')
+    k = data.get('k', config.k)
+    
+    if not query:
+        return jsonify({'error': 'Query required'}), 400
+    
+    try:
+        response = pubmed_query(query, k=k)
+        return jsonify({'success': True, 'response': response})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/projects', methods=['GET'])
 def list_projects():
