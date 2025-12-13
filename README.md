@@ -21,3 +21,5 @@ Edit `config.py` to change:
 
 - Run flask app on a raspberry pi or online service
 - Add option to do retrieval on demand to access entire databases
+    - utilize a cache to only search when necessary
+    - add ability to do projects within PubMed search 
